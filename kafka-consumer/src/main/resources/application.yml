@@ -1,0 +1,26 @@
+server:
+  port: 8082
+
+spring:
+  application:
+    name: kafka-consumer
+
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: chat-consumer-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
+        spring.json.value.default.type: com.eventstreaming.consumer.model.ChatMessage
+
+app:
+  kafka:
+    topic: chat-events
+
+logging:
+  level:
+    com.eventstreaming: DEBUG
+    org.springframework.kafka: INFO

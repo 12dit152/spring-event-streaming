@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Kafka Consumer — Live Feed</title>
+    <meta name="description" content="Real-time Kafka message consumer — watch messages arrive from the event stream." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg-base:       #0c0f11;
+            --bg-surface:    #111518;
+            --bg-card:       #181d22;
+            --bg-input:      #1c2128;
+            --border:        #252b35;
+            --accent:        #00d4aa;
+            --accent-dim:    rgba(0, 212, 170, 0.15);
+            --accent-glow:   rgba(0, 212, 170, 0.25);
+            --received-bg:   #1a2520;
+            --received-border: rgba(0, 212, 170, 0.2);
+            --text-primary:  #e4e9f0;
+            --text-secondary:#7d8899;
+            --text-muted:    #4a5568;
+            --success:       #00d4aa;
+            --error:         #e05c6a;
+            --warning:       #f5a623;
+            --radius-sm:     8px;
+            --radius-md:     14px;
+            --radius-lg:     20px;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-base);
+            color: var(--text-primary);
+            height: 100dvh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* ── Header ──────────────────────────────────────────────────── */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 24px;
+            background: rgba(17, 21, 24, 0.9);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        .header-left { display: flex; align-items: center; gap: 12px; }
+
+        .logo-icon {
+            width: 38px; height: 38px;
+            background: linear-gradient(135deg, #00d4aa, #0099cc);
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px;
+            box-shadow: 0 4px 15px rgba(0, 212, 170, 0.4);
+        }
+
+        .header-title { font-size: 17px; font-weight: 600; }
+        .header-subtitle { font-size: 12px; color: var(--text-secondary); margin-top: 1px; }
+
+        .header-right { display: flex; align-items: center; gap: 10px; }
+
+        .live-badge {
+            display: flex; align-items: center; gap: 6px;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            background: rgba(0, 212, 170, 0.1);
+            border: 1px solid rgba(0, 212, 170, 0.25);
+            color: var(--accent);
+            transition: all 0.3s ease;
+        }
+
+        .live-dot {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            background: var(--text-muted);
+            transition: all 0.3s ease;
+        }
+
+        .live-badge.active .live-dot {
+            background: var(--accent);
+            box-shadow: 0 0 8px var(--accent);
+            animation: livePulse 1.5s ease-in-out infinite;
+        }
+
+        .live-badge.error .live-dot { background: var(--error); }
+        .live-badge.error { color: var(--error); border-color: rgba(224, 92, 106, 0.25); background: rgba(224, 92, 106, 0.08); }
+
+        @keyframes livePulse {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.4; }
+        }
+
+        .clear-btn {
+            padding: 6px 12px;
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            font-size: 12px;
+            cursor: pointer;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.2s;
+        }
+
+        .clear-btn:hover { border-color: var(--error); color: var(--error); background: rgba(224, 92, 106, 0.08); }
+
+        /* ── Stats ribbon ─────────────────────────────────────────────── */
+        .stats-ribbon {
+            display: flex;
+            gap: 0;
+            background: var(--bg-surface);
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+            overflow-x: auto;
+        }
+
+        .stat-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px 20px;
+            border-right: 1px solid var(--border);
+            min-width: 90px;
+            gap: 2px;
+        }
+
+        .stat-value { font-size: 18px; font-weight: 700; color: var(--accent); }
+        .stat-label { font-size: 10px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+
+        /* ── Feed ─────────────────────────────────────────────────────── */
+        .feed-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .feed-container::-webkit-scrollbar { width: 4px; }
+        .feed-container::-webkit-scrollbar-track { background: transparent; }
+        .feed-container::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+        /* Empty state */
+        .empty-state {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            text-align: center;
+            gap: 14px;
+            padding: 40px;
+        }
+
+        .empty-icon { font-size: 52px; opacity: 0.3; }
+        .empty-title { font-size: 16px; font-weight: 500; color: var(--text-secondary); }
+        .empty-sub { font-size: 13px; max-width: 340px; line-height: 1.6; }
+
+        /* Waiting animation */
+        .waiting-dots { display: flex; gap: 6px; justify-content: center; }
+        .waiting-dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: var(--accent);
+            animation: waitBounce 1.4s ease-in-out infinite;
+        }
+        .waiting-dot:nth-child(2) { animation-delay: 0.2s; }
+        .waiting-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes waitBounce {
+            0%, 80%, 100% { transform: scale(0.6); opacity: 0.3; }
+            40%            { transform: scale(1);   opacity: 1; }
+        }
+
+        /* Message card */
+        .message-card {
+            display: flex;
+            gap: 12px;
+            background: var(--received-bg);
+            border: 1px solid var(--received-border);
+            border-radius: var(--radius-md);
+            padding: 14px 16px;
+            animation: cardIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        @keyframes cardIn {
+            from { opacity: 0; transform: translateY(-12px) scale(0.97); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .message-card::before {
+            content: '';
+            position: absolute;
+            left: 0; top: 0; bottom: 0;
+            width: 3px;
+            background: linear-gradient(to bottom, #00d4aa, #0099cc);
+            border-radius: 3px 0 0 3px;
+        }
+
+        /* New message flash */
+        .message-card.new-flash {
+            animation: cardIn 0.4s cubic-bezier(0.16, 1, 0.3, 1), flashGlow 0.8s ease 0.3s;
+        }
+
+        @keyframes flashGlow {
+            0%   { box-shadow: 0 0 0 0 var(--accent-glow); border-color: var(--accent); }
+            50%  { box-shadow: 0 0 20px 4px var(--accent-glow); }
+            100% { box-shadow: none; border-color: var(--received-border); }
+        }
+
+        .msg-avatar {
+            width: 38px; height: 38px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 15px;
+            font-weight: 700;
+            flex-shrink: 0;
+            margin-top: 1px;
+        }
+
+        .msg-body { flex: 1; min-width: 0; }
+
+        .msg-header {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+            margin-bottom: 5px;
+        }
+
+        .msg-sender {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        .msg-room {
+            font-size: 10px;
+            color: var(--accent);
+            background: var(--accent-dim);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+
+        .msg-time {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-left: auto;
+            flex-shrink: 0;
+        }
+
+        .msg-content {
+            font-size: 14px;
+            line-height: 1.55;
+            color: var(--text-primary);
+            word-break: break-word;
+        }
+
+        .msg-id {
+            font-size: 10px;
+            color: var(--text-muted);
+            margin-top: 6px;
+            font-family: 'Courier New', monospace;
+        }
+
+        /* NEW badge */
+        .new-badge {
+            font-size: 9px;
+            font-weight: 700;
+            color: var(--accent);
+            background: var(--accent-dim);
+            padding: 2px 6px;
+            border-radius: 4px;
+            letter-spacing: 0.06em;
+            animation: fadeOut 3s ease 1s forwards;
+        }
+
+        @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+
+        /* ── Footer ────────────────────────────────────────────────────── */
+        .footer {
+            padding: 10px 24px;
+            background: var(--bg-surface);
+            border-top: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+
+        .footer-left { font-size: 11px; color: var(--text-muted); }
+        .footer-left span { color: var(--text-secondary); }
+
+        .scroll-btn {
+            padding: 6px 14px;
+            background: var(--accent-dim);
+            border: 1px solid rgba(0, 212, 170, 0.3);
+            border-radius: 8px;
+            color: var(--accent);
+            font-size: 12px;
+            cursor: pointer;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.2s;
+            display: none;
+        }
+
+        .scroll-btn:hover { background: rgba(0, 212, 170, 0.2); }
+        .scroll-btn.visible { display: block; }
+
+        /* Reconnect banner */
+        .reconnect-banner {
+            display: none;
+            padding: 8px 24px;
+            background: rgba(245, 166, 35, 0.12);
+            border-bottom: 1px solid rgba(245, 166, 35, 0.3);
+            color: var(--warning);
+            font-size: 12px;
+            font-weight: 500;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .reconnect-banner.visible { display: flex; }
+    </style>
+</head>
+<body>
+
+<!-- ── Header ─────────────────────────────────────────────────────────── -->
+<header class="header">
+    <div class="header-left">
+        <div class="logo-icon">📡</div>
+        <div>
+            <div class="header-title">Kafka Consumer</div>
+            <div class="header-subtitle">Live Event Feed — Real-time Stream</div>
+        </div>
+    </div>
+    <div class="header-right">
+        <button class="clear-btn" id="clearBtn">Clear Feed</button>
+        <div class="live-badge" id="liveBadge">
+            <div class="live-dot"></div>
+            <span id="liveText">Connecting...</span>
+        </div>
+    </div>
+</header>
+
+<!-- ── Reconnect banner ───────────────────────────────────────────────── -->
+<div class="reconnect-banner" id="reconnectBanner">
+    ⚠ Stream disconnected — attempting to reconnect in <span id="countdown">5</span>s...
+</div>
+
+<!-- ── Stats ribbon ───────────────────────────────────────────────────── -->
+<div class="stats-ribbon">
+    <div class="stat-item">
+        <div class="stat-value" id="statTotal">0</div>
+        <div class="stat-label">Received</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-value" id="statSenders">0</div>
+        <div class="stat-label">Senders</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-value" id="statSession">0</div>
+        <div class="stat-label">This Session</div>
+    </div>
+    <div class="stat-item">
+        <div class="stat-value" id="statConnections">—</div>
+        <div class="stat-label">Connections</div>
+    </div>
+</div>
+
+<!-- ── Feed ───────────────────────────────────────────────────────────── -->
+<main class="feed-container" id="feedContainer">
+    <div class="empty-state" id="emptyState">
+        <div class="empty-icon">📭</div>
+        <div class="waiting-dots">
+            <div class="waiting-dot"></div>
+            <div class="waiting-dot"></div>
+            <div class="waiting-dot"></div>
+        </div>
+        <div class="empty-title">Listening for messages...</div>
+        <div class="empty-sub">
+            Open the <strong>Producer UI</strong> at <code>localhost:8081</code> and send a message.
+            It will appear here in real-time via Kafka.
+        </div>
+    </div>
+</main>
+
+<!-- ── Footer ─────────────────────────────────────────────────────────── -->
+<footer class="footer">
+    <div class="footer-left">
+        Topic: <span>chat-events</span> &nbsp;|&nbsp;
+        Group: <span>chat-consumer-group</span> &nbsp;|&nbsp;
+        Broker: <span>localhost:9092</span>
+    </div>
+    <button class="scroll-btn" id="scrollBtn" onclick="scrollToBottom()">↓ New messages</button>
+</footer>
+
+<script>
+    const API_BASE = 'http://localhost:8082/api/messages';
+    const SSE_URL  = `${API_BASE}/stream`;
+
+    let totalReceived  = 0;
+    let sessionReceived = 0;
+    const senders = new Set();
+    let eventSource = null;
+    let reconnectTimer = null;
+    let reconnectCountdown = 5;
+    let autoScroll = true;
+
+    // ── DOM refs ──────────────────────────────────────────────────────────
+    const feedContainer  = document.getElementById('feedContainer');
+    const emptyState     = document.getElementById('emptyState');
+    const liveBadge      = document.getElementById('liveBadge');
+    const liveText       = document.getElementById('liveText');
+    const statTotal      = document.getElementById('statTotal');
+    const statSenders    = document.getElementById('statSenders');
+    const statSession    = document.getElementById('statSession');
+    const statConnections= document.getElementById('statConnections');
+    const scrollBtn      = document.getElementById('scrollBtn');
+    const clearBtn       = document.getElementById('clearBtn');
+    const reconnectBanner= document.getElementById('reconnectBanner');
+    const countdown      = document.getElementById('countdown');
+
+    // ── Auto-scroll detection ─────────────────────────────────────────────
+    feedContainer.addEventListener('scroll', () => {
+        const atBottom = feedContainer.scrollHeight - feedContainer.scrollTop - feedContainer.clientHeight < 60;
+        autoScroll = atBottom;
+        scrollBtn.classList.toggle('visible', !atBottom && totalReceived > 0);
+    });
+
+    function scrollToBottom() {
+        feedContainer.scrollTo({ top: feedContainer.scrollHeight, behavior: 'smooth' });
+        autoScroll = true;
+        scrollBtn.classList.remove('visible');
+    }
+
+    // ── SSE connection ────────────────────────────────────────────────────
+    function connectSSE() {
+        if (eventSource) { eventSource.close(); }
+
+        setLiveState('connecting', 'Connecting...');
+
+        eventSource = new EventSource(SSE_URL);
+
+        eventSource.addEventListener('message', (e) => {
+            try {
+                const msg = JSON.parse(e.data);
+                appendCard(msg, true);
+                sessionReceived++;
+                updateStats();
+            } catch (err) {
+                console.error('Failed to parse message:', e.data, err);
+            }
+        });
+
+        eventSource.onopen = () => {
+            setLiveState('active', '● LIVE');
+            clearReconnect();
+            fetchHealth();
+        };
+
+        eventSource.onerror = () => {
+            setLiveState('error', '✗ Disconnected');
+            eventSource.close();
+            startReconnect();
+        };
+    }
+
+    function startReconnect() {
+        reconnectBanner.classList.add('visible');
+        reconnectCountdown = 5;
+        countdown.textContent = reconnectCountdown;
+
+        reconnectTimer = setInterval(() => {
+            reconnectCountdown--;
+            countdown.textContent = reconnectCountdown;
+            if (reconnectCountdown <= 0) {
+                clearReconnect();
+                connectSSE();
+            }
+        }, 1000);
+    }
+
+    function clearReconnect() {
+        if (reconnectTimer) { clearInterval(reconnectTimer); reconnectTimer = null; }
+        reconnectBanner.classList.remove('visible');
+    }
+
+    function setLiveState(state, text) {
+        liveBadge.className = 'live-badge ' + state;
+        liveText.textContent = text;
+    }
+
+    // ── Render message card ───────────────────────────────────────────────
+    function appendCard(msg, isNew = false) {
+        if (emptyState.parentNode) emptyState.remove();
+
+        totalReceived++;
+        if (msg.sender) senders.add(msg.sender);
+
+        const hue = [...(msg.sender || 'X')].reduce((h, c) => h + c.charCodeAt(0), 0) % 360;
+        const avatarBg = `linear-gradient(135deg, hsl(${hue},60%,45%), hsl(${(hue+40)%360},60%,55%))`;
+        const initials = (msg.sender || '?')[0].toUpperCase();
+
+        let timeStr = '—';
+        if (msg.timestamp) {
+            try {
+                timeStr = new Date(msg.timestamp.replace(' ', 'T'))
+                    .toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            } catch {}
+        }
+
+        const card = document.createElement('div');
+        card.className = 'message-card' + (isNew ? ' new-flash' : '');
+        card.innerHTML = `
+            <div class="msg-avatar" style="background:${avatarBg}">${escHtml(initials)}</div>
+            <div class="msg-body">
+                <div class="msg-header">
+                    <span class="msg-sender">${escHtml(msg.sender || 'Unknown')}</span>
+                    <span class="msg-room"># ${escHtml(msg.room || 'general')}</span>
+                    ${isNew ? '<span class="new-badge">NEW</span>' : ''}
+                    <span class="msg-time">${timeStr}</span>
+                </div>
+                <div class="msg-content">${escHtml(msg.content || '')}</div>
+                <div class="msg-id">id: ${escHtml(msg.id || '—')}</div>
+            </div>
+        `;
+
+        feedContainer.appendChild(card);
+
+        if (autoScroll) {
+            requestAnimationFrame(() => {
+                feedContainer.scrollTo({ top: feedContainer.scrollHeight, behavior: 'smooth' });
+            });
+        } else if (isNew) {
+            scrollBtn.classList.add('visible');
+        }
+    }
+
+    function updateStats() {
+        statTotal.textContent   = totalReceived;
+        statSenders.textContent = senders.size;
+        statSession.textContent = sessionReceived;
+    }
+
+    // ── Health check for connection count ─────────────────────────────────
+    async function fetchHealth() {
+        try {
+            const res = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(3000) });
+            if (res.ok) {
+                const data = await res.json();
+                statConnections.textContent = data.activeConnections ?? '—';
+            }
+        } catch { statConnections.textContent = '—'; }
+    }
+
+    // ── Clear feed ────────────────────────────────────────────────────────
+    clearBtn.addEventListener('click', () => {
+        feedContainer.innerHTML = '';
+        totalReceived   = 0;
+        sessionReceived = 0;
+        senders.clear();
+        updateStats();
+        feedContainer.appendChild(emptyState);
+        emptyState.style.display = '';
+    });
+
+    // ── Util ───────────────────────────────────────────────────────────────
+    function escHtml(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    // ── Init ───────────────────────────────────────────────────────────────
+    connectSSE();
+    setInterval(fetchHealth, 15000);
+</script>
+</body>
+</html>
