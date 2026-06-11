@@ -3,7 +3,7 @@
 > Real-time event streaming with Apache Kafka — producer, consumer, live UI, and production-grade retry pattern.
 
 ![Java](https://img.shields.io/badge/Java-21-orange?style=flat-square&logo=openjdk)
-![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.2.5-brightgreen?style=flat-square&logo=springboot)
+![Spring Boot](https://img.shields.io/badge/Spring_Boot-4.1.0-brightgreen?style=flat-square&logo=springboot)
 ![Kafka](https://img.shields.io/badge/Apache_Kafka-3.x-black?style=flat-square&logo=apachekafka)
 ![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)
 
@@ -97,7 +97,7 @@ External Kafka → Consumer Pod (EKS) → REST API
 | Layer | Technology |
 |-------|-----------|
 | Language | Java 21 |
-| Framework | Spring Boot 3.2.5 |
+| Framework | Spring Boot 4.1.0 |
 | Messaging | Apache Kafka (KRaft) |
 | Real-time | Server-Sent Events (SSE) |
 | Build | Maven |

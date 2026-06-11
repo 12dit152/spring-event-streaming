@@ -7,7 +7,7 @@ import org.springframework.test.annotation.DirtiesContext;
 
 @SpringBootTest
 @DirtiesContext
-@EmbeddedKafka(partitions = 1, brokerProperties = { "listeners=PLAINTEXT://localhost:9093", "port=9093" })
+@EmbeddedKafka(partitions = 1)
 class KafkaProducerApplicationTests {
 
     @Test
