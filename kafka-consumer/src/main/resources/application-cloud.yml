@@ -1,0 +1,32 @@
+# ---------------------------------------------------------------
+# Grafana Cloud profile — activated with:
+#   mvn spring-boot:run -Dspring-boot.run.profiles=cloud
+#
+# Credentials are loaded from ../.env at project root.
+# Copy .env.example → .env and fill in your values.
+# ---------------------------------------------------------------
+
+spring:
+  config:
+    import: optional:file:../.env[.properties]
+
+management:
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          endpoint: ${GRAFANA_OTLP_ENDPOINT}/v1/traces
+          headers:
+            Authorization: "Basic ${GRAFANA_OTLP_AUTH}"
+    logging:
+      export:
+        otlp:
+          endpoint: ${GRAFANA_OTLP_ENDPOINT}/v1/logs
+          headers:
+            Authorization: "Basic ${GRAFANA_OTLP_AUTH}"
+    metrics:
+      export:
+        otlp:
+          endpoint: ${GRAFANA_OTLP_ENDPOINT}/v1/metrics
+          headers:
+            Authorization: "Basic ${GRAFANA_OTLP_AUTH}"

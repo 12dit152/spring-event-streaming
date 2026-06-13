@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!--
+        JSON structured logging for Grafana / OTLP compatibility.
+        Uses Spring Boot 4's built-in StructuredLogEncoder (no extra deps).
+        Format: logstash — produces structured JSON with trace_id, span_id, and all MDC fields.
+        These fields are natively understood by Grafana Loki and OTel log pipelines.
+    -->
+
+    <!-- JSON console appender — Logstash-compatible structured JSON -->
+    <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="org.springframework.boot.logging.logback.StructuredLogEncoder">
+            <format>logstash</format>
+        </encoder>
+    </appender>
+
+    <!--
+        OTel OTLP appender — forwards log events directly to the OpenTelemetry SDK
+        which exports them to Grafana (Loki) via the OTLP endpoint.
+        trace_id and span_id are automatically propagated via OpenTelemetry context.
+    -->
+    <appender name="OTEL" class="io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender">
+        <captureExperimentalAttributes>true</captureExperimentalAttributes>
+        <captureCodeAttributes>true</captureCodeAttributes>
+        <captureMarkerAttribute>true</captureMarkerAttribute>
+        <captureKeyValuePairAttributes>true</captureKeyValuePairAttributes>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="JSON_CONSOLE"/>
+        <appender-ref ref="OTEL"/>
+    </root>
+</configuration>

@@ -41,7 +41,8 @@
             <optional>true</optional>
         </dependency>
 
-        <!-- Jackson for JSON -->
+        <!-- Spring Kafka JsonDeserializer requires com.fasterxml.jackson 2.x.
+             Spring Boot 4 ships tools.jackson 3.x (different group), so these must be explicit. -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
@@ -49,6 +50,21 @@
         <dependency>
             <groupId>com.fasterxml.jackson.datatype</groupId>
             <artifactId>jackson-datatype-jsr310</artifactId>
+        </dependency>
+
+        <!-- Observability: Actuator, Micrometer Tracing, and OpenTelemetry -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-opentelemetry</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.opentelemetry.instrumentation</groupId>
+            <artifactId>opentelemetry-logback-appender-1.0</artifactId>
+            <version>2.16.0-alpha</version>
         </dependency>
 
         <!-- Spring Boot Test -->

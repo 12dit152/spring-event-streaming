@@ -15,6 +15,8 @@ spring:
       properties:
         spring.json.trusted.packages: "*"
         spring.json.value.default.type: com.eventstreaming.consumer.model.ChatMessage
+    listener:
+      observation-enabled: true  # Reads OTel traceparent header from Kafka message → creates child span
 
 app:
   kafka:
@@ -24,3 +26,24 @@ logging:
   level:
     com.eventstreaming: DEBUG
     org.springframework.kafka: INFO
+    # Suppress verbose Kafka config dumps on startup
+    org.apache.kafka.common.config.AbstractConfig: WARN
+    org.apache.kafka.clients.admin.AdminClientConfig: WARN
+
+management:
+  opentelemetry:
+    tracing:
+      export:
+        otlp:
+          endpoint: http://localhost:4318/v1/traces
+    logging:
+      export:
+        otlp:
+          endpoint: http://localhost:4318/v1/logs
+  tracing:
+    sampling:
+      probability: 1.0
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
